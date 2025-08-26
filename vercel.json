@@ -10,6 +10,12 @@
       "maxDuration": 10
     }
   },
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
