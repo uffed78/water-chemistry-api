@@ -1,0 +1,29 @@
+{
+  "name": "water-chemistry-api",
+  "version": "1.0.0",
+  "description": "Precision brewing water chemistry calculation API",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc",
+    "test": "jest",
+    "deploy": "vercel --prod",
+    "validate": "node scripts/validate-against-brunwater.js"
+  },
+  "keywords": ["brewing", "water-chemistry", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "typescript": "^5.9.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.0",
+    "@vercel/node": "^5.3.14",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.1",
+    "vercel": "^46.0.3"
+  }
+}
