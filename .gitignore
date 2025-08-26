@@ -33,3 +33,4 @@ test-*.js
 
 # Excel files (optional - you might want to keep this)
 # BrunWater1.25.xlsx
+.vercel

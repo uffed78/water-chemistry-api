@@ -8,9 +8,6 @@
     },
     "api/salts.ts": {
       "maxDuration": 10
-    },
-    "api/validate.ts": {
-      "maxDuration": 10
     }
   },
   "headers": [
