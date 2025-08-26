@@ -1,21 +1,4 @@
 {
-  "functions": {
-    "api/calculate.ts": {
-      "maxDuration": 10
-    },
-    "api/profiles.ts": {
-      "maxDuration": 10
-    },
-    "api/salts.ts": {
-      "maxDuration": 10
-    }
-  },
-  "builds": [
-    {
-      "src": "api/**/*.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
