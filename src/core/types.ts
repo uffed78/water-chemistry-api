@@ -42,6 +42,17 @@ export interface CalculationRequest {
     salts?: Record<string, number>
     acids?: Record<string, number>
   }
+  acidPreferences?: {
+    mash?: {
+      type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
+      concentrationPct: number
+    }
+    sparge?: {
+      type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
+      concentrationPct: number
+      targetPH?: number
+    }
+  }
 }
 
 export interface CalculationResponse {

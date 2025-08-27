@@ -57,7 +57,26 @@ Användning i motorn:
 - Mash: Beräknas mängd syra (framförallt lactic 88%) om predikterat pH ligger över mål (t.ex. 5.4).
 - Sparge: Det finns en hjälpfunktion för att uppskatta syrning av spargevattnet (lactic 88% och phosphoric 85%), men den exponerade API-responsen delar inte upp tillsatser i mash/sparge.
 
-Obs: Bru'n Water-listan innehåller fler koncentrationer (10–96%) inkl. svavelsyra; dessa är inte fullt implementerade här.
+Obs: Bru'n Water-listan innehåller fler koncentrationer (10–96%) inkl. svavelsyra; dessa stöds nu via acid preferences (se nedan) för de koncentrationer som finns i tabellen.
+
+### Acid preferences (request)
+Du kan styra syratyp och koncentration i begäran:
+```json
+{
+  "acidPreferences": {
+    "mash": { "type": "lactic", "concentrationPct": 88 },
+    "sparge": { "type": "phosphoric", "concentrationPct": 85, "targetPH": 5.5 }
+  }
+}
+```
+- Stödda typer: `lactic`, `phosphoric`, `hydrochloric`, `sulfuric`.
+- Stödda koncentrationer (mEq/mL internt):
+  - Lactic: 88, 80, 50, 10
+  - Phosphoric: 85, 75, 10
+  - Hydrochloric: 37, 31, 10
+  - Sulfuric: 96, 93, 10
+- Om en annan koncentration anges väljs närmaste kända koncentration.
+- Default (om inget anges): mash = lactic 88%; sparge läggs inte till (om du anger `acidPreferences.sparge` inkluderas sparge-acid i svaret).
 
 ## Beräkningar och prediktioner
 - Mash pH (förenklad modell)

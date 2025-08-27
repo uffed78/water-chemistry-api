@@ -135,6 +135,26 @@ Performs water chemistry calculations.
 }
 ```
 
+#### Optional: Acid Preferences
+You can specify which acid and concentration to use for mash and/or sparge acidification. If omitted, mash defaults to lactic 88% and sparge is not added automatically.
+
+```json
+{
+  "acidPreferences": {
+    "mash": { "type": "phosphoric", "concentrationPct": 85 },
+    "sparge": { "type": "lactic", "concentrationPct": 88, "targetPH": 5.5 }
+  }
+}
+```
+
+Supported acids and concentrations (mEq/mL internal mapping):
+- lactic: 88, 80, 50, 10
+- phosphoric: 85, 75, 10
+- hydrochloric: 37, 31, 10
+- sulfuric: 96, 93, 10
+
+If an unsupported concentration is passed, the nearest known strength is used.
+
 **Response:**
 ```json
 {
@@ -163,6 +183,10 @@ Performs water chemistry calculations.
   "recommendations": []
 }
 ```
+
+Notes:
+- When `acidPreferences.sparge` is provided, a separate acid entry labelled with "(Sparge)" is included in `adjustments.acids`.
+- Salt additions are computed against total volume; mash/sparge splitting can be applied in the client. See `API-CAPABILITIES.md` for a minimal helper function and guidelines.
 
 ## 🧪 Testing
 

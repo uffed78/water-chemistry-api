@@ -182,77 +182,102 @@ export class WaterChemistryEngine {
   }
 
   private calculateAcidAdjustments(request: CalculationRequest) {
-    const adjustments = []
-    
+    const adjustments: Array<{ id: string; name: string; amount: number; unit: string }> = []
+
     // Calculate predicted mash pH first
     const predictedPH = this.calculateMashPH_BrunWater(request.sourceWater, request.grainBill, request.volumes.mash)
     const targetPH = request.targetMashPH || 5.4
-    
+
     // Only add acid if mash pH is too high
-    if (predictedPH > targetPH + 0.05) { // 0.05 tolerance
+    if (predictedPH > targetPH + 0.05) {
       const pHDifference = predictedPH - targetPH
-      const acidRequired = this.calculateAcidRequired(pHDifference, request.grainBill, request.volumes.mash)
-      
-      if (acidRequired.lacticML > 0.1) {
+      const mEqNeeded = this.calculateAcidMEqRequired(pHDifference, request.grainBill)
+
+      // Choose acid based on preferences (default lactic 88%)
+      const pref = request.acidPreferences?.mash || { type: 'lactic', concentrationPct: 88 }
+      const strength = this.getAcidStrength(pref.type, pref.concentrationPct)
+      const volumeML = strength > 0 ? mEqNeeded / strength : 0
+
+      if (volumeML > 0.1) {
         adjustments.push({
-          id: 'lactic_acid_88',
-          name: 'Lactic Acid (88%)',
-          amount: Math.round(acidRequired.lacticML * 10) / 10,
+          id: `${pref.type}_acid_${pref.concentrationPct}`,
+          name: this.describeAcid(pref.type, pref.concentrationPct),
+          amount: Math.round(volumeML * 10) / 10,
           unit: 'ml'
         })
       }
     }
-    
+
+    // Optional: Sparge acidification if preferences provided
+    if (request.acidPreferences?.sparge && request.volumes.sparge > 0) {
+      const sPref = request.acidPreferences.sparge
+      const targetSpargePH = sPref.targetPH ?? 5.5
+      const mEq = this.calculateSpargeAcid_mEq(request.sourceWater, request.volumes.sparge, targetSpargePH)
+      const strength = this.getAcidStrength(sPref.type, sPref.concentrationPct)
+      const volumeML = strength > 0 ? mEq / strength : 0
+
+      if (volumeML > 0.1) {
+        adjustments.push({
+          id: `${sPref.type}_acid_${sPref.concentrationPct}_sparge`,
+          name: `${this.describeAcid(sPref.type, sPref.concentrationPct)} (Sparge)`,
+          amount: Math.round(volumeML * 10) / 10,
+          unit: 'ml'
+        })
+      }
+    }
+
     return adjustments
   }
 
-  // Calculate acid requirements using Bru'n Water methodology
-  private calculateAcidRequired(pHDifference: number, grainBill: GrainBillItem[], mashVolumeLiters: number) {
-    // Calculate total buffer capacity of mash
+  // Calculate total mEq of acid needed for mash pH shift
+  private calculateAcidMEqRequired(pHDifference: number, grainBill: GrainBillItem[]) {
     const totalGrainKg = grainBill.reduce((sum, grain) => sum + grain.amountKg, 0)
     let totalBufferCapacity = 0
-    
+
     for (const grain of grainBill) {
       const grainData = lookupGrainData(grain.name, grain.color)
       totalBufferCapacity += grainData.bufferCapacity * grain.amountKg
     }
-    
-    // mEq of acid needed to achieve pH change
-    const mEqNeeded = pHDifference * (totalBufferCapacity / 1000) * 1.2 // 1.2 is empirical safety factor
-    
-    // Convert to acid volumes using acid strength from brunwater-formulas.md
-    const acidStrengths = {
-      lacticML_88: 11.76,    // mEq/mL for 88% lactic acid
-      lacticML_80: 10.45,    // mEq/mL for 80% lactic acid  
-      phosphoricML_85: 14.67, // mEq/mL for 85% phosphoric acid
-      hydrochloricML_37: 11.98 // mEq/mL for 37% hydrochloric acid
-    }
-    
-    return {
-      lacticML: mEqNeeded / acidStrengths.lacticML_88,
-      lacticML_80: mEqNeeded / acidStrengths.lacticML_80,
-      phosphoricML: mEqNeeded / acidStrengths.phosphoricML_85,
-      hydrochloricML: mEqNeeded / acidStrengths.hydrochloricML_37
-    }
+
+    // mEq needed for desired pH shift (empirical safety factor 1.2)
+    const mEqNeeded = pHDifference * (totalBufferCapacity / 1000) * 1.2
+    return mEqNeeded
   }
 
-  // Calculate sparge water acidification
-  private calculateSpargeAcidification(spargeWater: WaterProfile, volumeLiters: number, targetPH: number = 5.5) {
-    // Alkalinity of sparge water
+  // Calculate mEq needed to acidify sparge water to target pH
+  private calculateSpargeAcid_mEq(spargeWater: WaterProfile, volumeLiters: number, targetPH: number = 5.5) {
     const alkalinityMEq = (spargeWater.bicarbonate * 0.82 * volumeLiters) / 50
-    
-    // pH shift needed
     const currentPH = spargeWater.ph || 7.0
-    const deltaPH = currentPH - targetPH
-    
-    // Simplified calculation (no grain buffering in sparge)
-    const mEqNeeded = alkalinityMEq * deltaPH * 0.5 // 0.5 is empirical factor
-    
-    // Convert to acid volumes
-    return {
-      lacticML_88: mEqNeeded / 11.76,
-      phosphoricML_85: mEqNeeded / 14.67
+    const deltaPH = Math.max(0, currentPH - targetPH)
+    const mEqNeeded = alkalinityMEq * deltaPH * 0.5 // empirical factor
+    return mEqNeeded
+  }
+
+  // Acid strength (mEq/mL) per acid type and concentration
+  private getAcidStrength(type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric', concentrationPct: number): number {
+    const table: Record<string, Record<number, number>> = {
+      lactic: { 88: 11.76, 80: 10.45, 50: 6.22, 10: 1.13 },
+      phosphoric: { 85: 14.67, 75: 12.12, 10: 1.07 },
+      hydrochloric: { 37: 11.98, 31: 9.78, 10: 2.87 },
+      sulfuric: { 96: 36.77, 93: 34.88, 10: 2.18 }
     }
+    const map = table[type]
+    if (!map) return 0
+    if (map[concentrationPct]) return map[concentrationPct]
+    // Fallback to nearest defined concentration
+    const keys = Object.keys(map).map(k => parseFloat(k)).sort((a, b) => Math.abs(a - concentrationPct) - Math.abs(b - concentrationPct))
+    const nearest = keys[0]
+    return map[nearest]
+  }
+
+  private describeAcid(type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric', concentrationPct: number): string {
+    const names: Record<string, string> = {
+      lactic: 'Lactic Acid',
+      phosphoric: 'Phosphoric Acid',
+      hydrochloric: 'Hydrochloric Acid',
+      sulfuric: 'Sulfuric Acid'
+    }
+    return `${names[type]} (${concentrationPct}%)`
   }
 
   private applySaltAdjustments(water: WaterProfile, adjustments: any[], volumeLiters: number) {
