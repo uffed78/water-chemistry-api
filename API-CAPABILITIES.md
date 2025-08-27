@@ -1,4 +1,5 @@
 # Water Chemistry API – Kapabiliteter och Omfattning
+https://water-chemistry-jrpmda5lh-uffes-projects-1d3686fb.vercel.app`
 
 Denna fil sammanfattar allt som detta API gör: vilka salter och syror som stöds, vilka beräkningar som implementeras, vilka endpoints som finns, samt kända begränsningar jämfört med Bru'n Water 1.25.
 
@@ -116,6 +117,18 @@ Varje profil specificerar Ca, Mg, Na, SO4, Cl, HCO3, CO3, pH.
 ## Stöd för manuella justeringar
 - `manualAdjustments.salts`: godtyckliga gram per salt-id (t.ex. `gypsum: 7`).
 - `manualAdjustments.acids`: reserverat fält; mash-syra räknas automatiskt om pH är högt, men explicit fördelning mash/sparge görs inte i svaret.
+
+## Salt preferences (valfria begränsningar)
+Du kan begränsa vilka salter som får användas i de automatiska rekommendationerna via `saltPreferences.allowedSalts`:
+```json
+{
+  "saltPreferences": {
+    "allowedSalts": ["gypsum", "calcium_chloride", "sodium_chloride"]
+  }
+}
+```
+Stödda id:n: `gypsum`, `calcium_chloride`, `epsom_salt`, `magnesium_chloride`, `sodium_chloride`, `baking_soda`, `calcium_carbonate`, `calcium_hydroxide`.
+Om ett salt inte är tillåtet, hoppas det över i heuristiken och motsvarande jonbehov kan bli kvar ofyllda.
 
 ## Enheter och volymer
 - Indata innehåller `volumes.total`, `volumes.mash`, `volumes.sparge`.

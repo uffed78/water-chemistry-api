@@ -51,6 +51,13 @@ export class WaterChemistryEngine {
       return this.processManualSaltAdjustments(request.manualAdjustments.salts)
     }
     
+    // If a target water profile is provided, try to match it
+    if (request.targetWater) {
+      const targetBased = this.calculateTargetBasedSaltAdjustments(request)
+      if (targetBased.length > 0) return targetBased
+      // Fallback to style-based if solver yields nothing
+    }
+    
     // Calculate intelligent salt additions based on water profile and beer style
     return this.calculateIntelligentSaltAdjustments(request)
   }
@@ -77,6 +84,9 @@ export class WaterChemistryEngine {
     const adjustments = []
     const water = request.sourceWater
     const volumeLiters = request.volumes.total
+    const allowed = new Set(
+      request.saltPreferences?.allowedSalts ?? Object.keys(SALT_DEFINITIONS)
+    )
     
     // Target ion levels based on beer style analysis
     const targets = this.determineBeerStyleTargets(request)
@@ -89,7 +99,7 @@ export class WaterChemistryEngine {
     
     // Prioritize salt additions based on needs
     // 1. Calcium Sulfate (Gypsum) - for sulfate and calcium
-    if (sulfateNeeded > 0 || calciumNeeded > 0) {
+    if ((sulfateNeeded > 0 || calciumNeeded > 0) && allowed.has('gypsum')) {
       const gypsumForSulfate = sulfateNeeded > 0 ? sulfateNeeded / SALT_DEFINITIONS.gypsum.ionsPPMPerGram.sulfate! : 0
       const gypsumForCalcium = calciumNeeded > 0 ? calciumNeeded / SALT_DEFINITIONS.gypsum.ionsPPMPerGram.calcium! : 0
       const gypsumAmount = Math.max(gypsumForSulfate, gypsumForCalcium) * volumeLiters
@@ -105,7 +115,7 @@ export class WaterChemistryEngine {
     }
     
     // 2. Calcium Chloride - for chloride and remaining calcium
-    if (chlorideNeeded > 0) {
+    if (chlorideNeeded > 0 && allowed.has('calcium_chloride')) {
       const calciumChlorideAmount = (chlorideNeeded / SALT_DEFINITIONS.calcium_chloride.ionsPPMPerGram.chloride!) * volumeLiters
       
       if (calciumChlorideAmount > 0.1) {
@@ -119,7 +129,7 @@ export class WaterChemistryEngine {
     }
     
     // 3. Epsom Salt - for magnesium
-    if (magnesiumNeeded > 0) {
+    if (magnesiumNeeded > 0 && allowed.has('epsom_salt')) {
       const epsomAmount = (magnesiumNeeded / SALT_DEFINITIONS.epsom_salt.ionsPPMPerGram.magnesium!) * volumeLiters
       
       if (epsomAmount > 0.1) {
@@ -133,6 +143,120 @@ export class WaterChemistryEngine {
     }
     
     return adjustments
+  }
+
+  // Greedy target-based solver: attempts to reach targetWater ion levels with allowed salts
+  private calculateTargetBasedSaltAdjustments(request: CalculationRequest) {
+    const source = { ...request.sourceWater }
+    const target = request.targetWater!
+    const volumeLiters = request.volumes.total
+    const allowed = new Set(
+      request.saltPreferences?.allowedSalts ?? Object.keys(SALT_DEFINITIONS)
+    )
+
+    // Candidate salts that primarily add Ca, Mg, Na, SO4, Cl, HCO3
+    const candidateSaltIds = [
+      'gypsum',              // Ca, SO4
+      'calcium_chloride',    // Ca, Cl
+      'epsom_salt',          // Mg, SO4
+      'magnesium_chloride',  // Mg, Cl
+      'sodium_chloride',     // Na, Cl
+      'baking_soda'          // Na, HCO3
+      // Chalk and Lime omitted in default solver due to complexity; can be allowed explicitly
+    ].filter(id => allowed.has(id))
+
+    if (candidateSaltIds.length === 0) return []
+
+    // Track running additions
+    const additions: Record<string, number> = {}
+
+    // Helper to compute positive deficits
+    const deficits = () => ({
+      calcium: Math.max(0, (target.calcium ?? 0) - (source.calcium ?? 0)),
+      magnesium: Math.max(0, (target.magnesium ?? 0) - (source.magnesium ?? 0)),
+      sodium: Math.max(0, (target.sodium ?? 0) - (source.sodium ?? 0)),
+      sulfate: Math.max(0, (target.sulfate ?? 0) - (source.sulfate ?? 0)),
+      chloride: Math.max(0, (target.chloride ?? 0) - (source.chloride ?? 0)),
+      bicarbonate: Math.max(0, (target.bicarbonate ?? 0) - (source.bicarbonate ?? 0))
+    })
+
+    // Normalize weights to emphasize SO4/Cl and Ca first (taste + mash health)
+    const weights: Record<string, number> = {
+      calcium: 1.0,
+      magnesium: 0.5,
+      sodium: 0.6,
+      sulfate: 1.0,
+      chloride: 1.0,
+      bicarbonate: 0.7
+    }
+
+    // Iterate greedily up to N steps
+    for (let step = 0; step < 20; step++) {
+      const need = deficits()
+      const totalNeed = need.calcium + need.magnesium + need.sodium + need.sulfate + need.chloride + need.bicarbonate
+      if (totalNeed <= 1) break // close enough in ppm
+
+      // Score each salt by how well it addresses current deficits
+      let bestSalt: string | null = null
+      let bestScore = 0
+      for (const id of candidateSaltIds) {
+        const salt = (SALT_DEFINITIONS as any)[id]
+        const ions = salt.ionsPPMPerGram || {}
+        const score =
+          (ions.calcium || 0) * weights.calcium * Math.min(1, need.calcium / Math.max(1, ions.calcium || 1)) +
+          (ions.magnesium || 0) * weights.magnesium * Math.min(1, need.magnesium / Math.max(1, ions.magnesium || 1)) +
+          (ions.sodium || 0) * weights.sodium * Math.min(1, need.sodium / Math.max(1, ions.sodium || 1)) +
+          (ions.sulfate || 0) * weights.sulfate * Math.min(1, need.sulfate / Math.max(1, ions.sulfate || 1)) +
+          (ions.chloride || 0) * weights.chloride * Math.min(1, need.chloride / Math.max(1, ions.chloride || 1)) +
+          (ions.bicarbonate || 0) * weights.bicarbonate * Math.min(1, need.bicarbonate / Math.max(1, ions.bicarbonate || 1))
+        if (score > bestScore) {
+          bestScore = score
+          bestSalt = id
+        }
+      }
+
+      if (!bestSalt) break
+
+      // Compute grams needed based on limiting ion for the chosen salt
+      const salt = (SALT_DEFINITIONS as any)[bestSalt]
+      const ions = salt.ionsPPMPerGram || {}
+      const limitingRatios: number[] = []
+      if (ions.calcium && need.calcium > 0) limitingRatios.push(need.calcium / ions.calcium)
+      if (ions.magnesium && need.magnesium > 0) limitingRatios.push(need.magnesium / ions.magnesium)
+      if (ions.sodium && need.sodium > 0) limitingRatios.push(need.sodium / ions.sodium)
+      if (ions.sulfate && need.sulfate > 0) limitingRatios.push(need.sulfate / ions.sulfate)
+      if (ions.chloride && need.chloride > 0) limitingRatios.push(need.chloride / ions.chloride)
+      if (ions.bicarbonate && need.bicarbonate > 0) limitingRatios.push(need.bicarbonate / ions.bicarbonate)
+
+      if (limitingRatios.length === 0) break
+
+      // grams per liter to satisfy the most constrained ion
+      const gPerL = Math.max(0, Math.min(...limitingRatios))
+      if (gPerL <= 0) break
+
+      // Apply a fraction to avoid overshoot and iterate
+      const appliedGrams = Math.min(gPerL * volumeLiters, 50) // cap to 50g total each step for safety
+      additions[bestSalt] = (additions[bestSalt] || 0) + appliedGrams
+
+      // Update source water with contributions from this addition
+      const gramsPerLiter = appliedGrams / volumeLiters
+      if (ions.calcium) source.calcium += ions.calcium * gramsPerLiter
+      if (ions.magnesium) source.magnesium += ions.magnesium * gramsPerLiter
+      if (ions.sodium) source.sodium += ions.sodium * gramsPerLiter
+      if (ions.sulfate) source.sulfate += ions.sulfate * gramsPerLiter
+      if (ions.chloride) source.chloride += ions.chloride * gramsPerLiter
+      if (ions.bicarbonate) source.bicarbonate += ions.bicarbonate * gramsPerLiter
+    }
+
+    // Convert to adjustment list
+    const list = Object.entries(additions).map(([id, grams]) => ({
+      id,
+      name: (SALT_DEFINITIONS as any)[id].name,
+      amount: Math.round(grams * 10) / 10,
+      unit: 'g'
+    }))
+
+    return list
   }
 
   private determineBeerStyleTargets(request: CalculationRequest) {

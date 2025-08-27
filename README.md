@@ -155,6 +155,17 @@ Supported acids and concentrations (mEq/mL internal mapping):
 
 If an unsupported concentration is passed, the nearest known strength is used.
 
+#### Optional: Salt Preferences
+Limit which salts may be used by the automatic recommender:
+```json
+{
+  "saltPreferences": {
+    "allowedSalts": ["gypsum", "calcium_chloride", "sodium_chloride"]
+  }
+}
+```
+Supported salt ids: `gypsum`, `calcium_chloride`, `epsom_salt`, `magnesium_chloride`, `sodium_chloride`, `baking_soda`, `calcium_carbonate`, `calcium_hydroxide`.
+
 **Response:**
 ```json
 {

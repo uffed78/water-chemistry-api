@@ -53,6 +53,18 @@ export interface CalculationRequest {
       targetPH?: number
     }
   }
+  saltPreferences?: {
+    allowedSalts?: Array<
+      | 'gypsum'
+      | 'calcium_chloride'
+      | 'epsom_salt'
+      | 'magnesium_chloride'
+      | 'sodium_chloride'
+      | 'baking_soda'
+      | 'calcium_carbonate'
+      | 'calcium_hydroxide'
+    >
+  }
 }
 
 export interface CalculationResponse {
