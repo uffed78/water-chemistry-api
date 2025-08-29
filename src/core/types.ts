@@ -77,20 +77,68 @@ export interface CalculationResponse {
       name: string
       amount: number
       unit: string
+      target?: 'mash' | 'sparge' | 'boil'  // Where to add this salt
     }>
     acids: Array<{
       id: string
       name: string
       amount: number
       unit: string
+      target?: 'mash' | 'sparge'  // Where to add this acid
     }>
+    // New split structure (optional for backwards compatibility)
+    mash?: {
+      salts: Array<{
+        id: string
+        name: string
+        amount: number
+        unit: string
+      }>
+      acids: Array<{
+        id: string
+        name: string
+        amount: number
+        unit: string
+      }>
+    }
+    sparge?: {
+      salts: Array<{
+        id: string
+        name: string
+        amount: number
+        unit: string
+      }>
+      acids: Array<{
+        id: string
+        name: string
+        amount: number
+        unit: string
+      }>
+    }
+    boil?: {
+      salts: Array<{
+        id: string
+        name: string
+        amount: number
+        unit: string
+      }>
+    }
   }
   predictions: {
-    mashPH: number
-    finalPH: number
+    // pH progression
+    basePH?: number          // pH from grain bill only
+    sourcePH?: number        // pH with source water
+    afterSaltsPH?: number    // pH after salt additions
+    finalPH: number          // Final pH after acid additions
+    
+    // Legacy field for backwards compatibility
+    mashPH: number           // Same as afterSaltsPH
+    
+    // Other predictions
     residualAlkalinity: number
     sulfateChlorideRatio: number
     effectiveHardness: number
+    totalHardness?: number
   }
   warnings: string[]
   recommendations: string[]

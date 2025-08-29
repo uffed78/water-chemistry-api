@@ -18,7 +18,8 @@ water-chemistry-api/
 ├── api/                    # Vercel serverless functions
 │   ├── calculate.ts        # POST /api/calculate
 │   ├── profiles.ts         # GET /api/profiles
-│   └── salts.ts           # GET /api/salts
+│   ├── salts.ts           # GET /api/salts
+│   └── styles.ts          # GET /api/styles
 ├── src/
 │   ├── core/              # Core calculation logic
 │   │   ├── types.ts       # TypeScript interfaces
@@ -314,3 +315,17 @@ ISC License
 ---
 
 **Note:** This is the foundational implementation. The calculation algorithms will be enhanced to match Bru'n Water's precision in future updates.
+### GET /api/styles
+
+Returns style-oriented target mineral profiles (typical midpoints for style ranges).
+
+Example response:
+```json
+[
+  {
+    "id": "american_ipa",
+    "name": "American IPA",
+    "targets": { "calcium": 120, "magnesium": 10, "sodium": 10, "sulfate": 250, "chloride": 75, "bicarbonate": 50, "sulfateChlorideRatio": 3.0 }
+  }
+]
+```

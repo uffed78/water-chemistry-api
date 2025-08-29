@@ -7,15 +7,41 @@ export class WaterChemistryEngine {
     const sourceWater = request.sourceWater
     const achievedWater = this.cloneWaterProfile(sourceWater)
     
+    // Calculate pH progression through the process
+    // Step 1: Base pH from grain bill only (no water chemistry)
+    const basePH = this.calculateMashPH_BrunWater(
+      { ...sourceWater, calcium: 0, magnesium: 0, sodium: 0, sulfate: 0, chloride: 0, bicarbonate: 0, carbonate: 0 },
+      request.grainBill,
+      request.volumes.mash
+    )
+    
+    // Step 2: pH after source water minerals (before adjustments)
+    const sourcePH = this.calculateMashPH_BrunWater(sourceWater, request.grainBill, request.volumes.mash)
+    
     // Simple salt calculations for now - this needs to be expanded with proper algorithms
     const saltAdjustments = this.calculateSaltAdjustments(request)
-    const acidAdjustments = this.calculateAcidAdjustments(request)
+    
+    // Handle acid adjustments - either calculate or use manual
+    const acidAdjustments = request.manualAdjustments?.acids 
+      ? this.processManualAcidAdjustments(request.manualAdjustments.acids)
+      : this.calculateAcidAdjustments(request)
     
     // Apply salt adjustments to achieved water
     this.applySaltAdjustments(achievedWater, saltAdjustments, request.volumes.total)
     
-    // Calculate predictions with proper volumes
-    const predictions = this.calculatePredictions(achievedWater, request.grainBill, request.volumes.mash)
+    // Step 3: pH after salt additions
+    const afterSaltsPH = this.calculateMashPH_BrunWater(achievedWater, request.grainBill, request.volumes.mash)
+    
+    // Step 4: Final pH after acid additions (estimated)
+    const finalPH = this.estimateFinalPH(afterSaltsPH, acidAdjustments, request.grainBill, request.volumes.mash)
+    
+    // Calculate predictions with proper volumes and enhanced pH data
+    const predictions = this.calculatePredictionsEnhanced(
+      achievedWater, 
+      request.grainBill, 
+      request.volumes.mash,
+      { basePH, sourcePH, afterSaltsPH, finalPH }
+    )
     
     // Add ion balance validation
     const ionBalance = this.validateIonBalance(achievedWater)
@@ -27,17 +53,135 @@ export class WaterChemistryEngine {
     const warnings = this.generateWarnings(achievedWater, predictions)
     const recommendations = this.generateRecommendations(achievedWater, predictions)
     
+    // Split adjustments between mash/sparge/boil
+    const splitAdjustments = this.splitAdjustments(
+      saltAdjustments,
+      acidAdjustments,
+      request.volumes
+    )
+    
     return {
       success: true,
       sourceWater,
       achievedWater,
       adjustments: {
         salts: saltAdjustments,
-        acids: acidAdjustments
+        acids: acidAdjustments,
+        ...splitAdjustments  // Add mash/sparge/boil splits
       },
       predictions,
       warnings,
       recommendations
+    }
+  }
+
+  private splitAdjustments(
+    salts: Array<{ id: string; name: string; amount: number; unit: string }>,
+    acids: Array<{ id: string; name: string; amount: number; unit: string }>,
+    volumes: { total: number; mash: number; sparge: number }
+  ) {
+    // Type for internal use with target field
+    type AdjustmentWithTarget = {
+      id: string
+      name: string
+      amount: number
+      unit: string
+      target?: 'mash' | 'sparge' | 'boil'
+    }
+    
+    const mashRatio = volumes.mash / volumes.total
+    const spargeRatio = volumes.sparge / volumes.total
+    
+    // Split salts based on best practices
+    const mashSalts: AdjustmentWithTarget[] = []
+    const spargeSalts: AdjustmentWithTarget[] = []
+    const boilSalts: AdjustmentWithTarget[] = []
+    
+    for (const salt of salts) {
+      // Determine where each salt should go based on its properties
+      const saltDef = SALT_DEFINITIONS[salt.id]
+      
+      if (salt.id === 'calcium_carbonate' || salt.id === 'calcium_hydroxide') {
+        // Alkaline salts go in mash only (for pH adjustment)
+        mashSalts.push({ ...salt, target: 'mash' as const })
+      } else if (salt.id === 'sodium_chloride' || salt.id === 'calcium_chloride') {
+        // Chlorides split 2/3 mash, 1/3 boil (to avoid harsh bitterness)
+        const mashAmount = Math.round(salt.amount * 0.67 * 10) / 10
+        const boilAmount = Math.round((salt.amount - mashAmount) * 10) / 10
+        
+        if (mashAmount > 0) {
+          mashSalts.push({ ...salt, amount: mashAmount, target: 'mash' as const })
+        }
+        if (boilAmount > 0) {
+          boilSalts.push({ ...salt, amount: boilAmount, target: 'boil' as const })
+        }
+      } else if (salt.id === 'gypsum' || salt.id === 'epsom_salt') {
+        // Sulfates can be split between mash and boil
+        // Put 50% in mash for pH, 50% in boil for hop character
+        const mashAmount = Math.round(salt.amount * 0.5 * 10) / 10
+        const boilAmount = Math.round((salt.amount - mashAmount) * 10) / 10
+        
+        if (mashAmount > 0) {
+          mashSalts.push({ ...salt, amount: mashAmount, target: 'mash' as const })
+        }
+        if (boilAmount > 0) {
+          boilSalts.push({ ...salt, amount: boilAmount, target: 'boil' as const })
+        }
+      } else {
+        // Default: all in mash
+        mashSalts.push({ ...salt, target: 'mash' as const })
+      }
+    }
+    
+    // Split acids between mash and sparge
+    const mashAcids: AdjustmentWithTarget[] = []
+    const spargeAcids: AdjustmentWithTarget[] = []
+    
+    for (const acid of acids) {
+      if (acid.id.includes('sparge')) {
+        // Sparge-specific acids
+        spargeAcids.push({ ...acid, target: 'sparge' as const })
+      } else {
+        // Mash acids
+        mashAcids.push({ ...acid, target: 'mash' as const })
+      }
+    }
+    
+    // Add target field to original arrays
+    salts.forEach(salt => {
+      const inMash = mashSalts.find(s => s.id === salt.id && s.target === 'mash')
+      const inBoil = boilSalts.find(s => s.id === salt.id && s.target === 'boil')
+      if (inMash && !inBoil) {
+        (salt as any).target = 'mash'
+      } else if (inBoil && !inMash) {
+        (salt as any).target = 'boil'
+      } else if (inMash && inBoil) {
+        (salt as any).target = 'split' // Indicates split between mash and boil
+      }
+    })
+    
+    acids.forEach(acid => {
+      const inMash = mashAcids.find(a => a.id === acid.id)
+      const inSparge = spargeAcids.find(a => a.id === acid.id)
+      if (inMash) {
+        (acid as any).target = 'mash'
+      } else if (inSparge) {
+        (acid as any).target = 'sparge'
+      }
+    })
+    
+    return {
+      mash: {
+        salts: mashSalts.map(({ target, ...salt }) => salt),
+        acids: mashAcids.map(({ target, ...acid }) => acid)
+      },
+      sparge: {
+        salts: spargeSalts.map(({ target, ...salt }) => salt),
+        acids: spargeAcids.map(({ target, ...acid }) => acid)
+      },
+      boil: {
+        salts: boilSalts.map(({ target, ...salt }) => salt)
+      }
     }
   }
 
@@ -73,6 +217,28 @@ export class WaterChemistryEngine {
           name: salt.name,
           amount: Math.round(amount * 10) / 10,
           unit: 'g'
+        })
+      }
+    }
+    
+    return adjustments
+  }
+
+  private processManualAcidAdjustments(manualAcids: Record<string, number>) {
+    const adjustments = []
+    
+    for (const [acidId, amount] of Object.entries(manualAcids)) {
+      if (amount > 0) {
+        // Parse acid ID format: "lactic_88" or "phosphoric_85" etc.
+        const parts = acidId.split('_')
+        const acidType = parts[0] as 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
+        const concentration = parts[1] ? parseInt(parts[1]) : 88 // Default to 88% for lactic
+        
+        adjustments.push({
+          id: `${acidType}_acid_${concentration}`,
+          name: this.describeAcid(acidType, concentration),
+          amount: Math.round(amount * 10) / 10,
+          unit: 'ml'
         })
       }
     }
@@ -182,70 +348,138 @@ export class WaterChemistryEngine {
 
     // Normalize weights to emphasize SO4/Cl and Ca first (taste + mash health)
     const weights: Record<string, number> = {
-      calcium: 1.0,
-      magnesium: 0.5,
-      sodium: 0.6,
-      sulfate: 1.0,
-      chloride: 1.0,
-      bicarbonate: 0.7
+      calcium: 1.2,      // Very important for enzyme function
+      magnesium: 0.8,    // Important for yeast health
+      sodium: 0.4,       // Less critical
+      sulfate: 1.0,      // Important for hop character
+      chloride: 1.0,     // Important for malt character
+      bicarbonate: 0.9   // Important for mash pH
     }
 
-    // Iterate greedily up to N steps
-    for (let step = 0; step < 20; step++) {
+    // Improved optimization with overshoot prevention
+    for (let step = 0; step < 30; step++) {
       const need = deficits()
       const totalNeed = need.calcium + need.magnesium + need.sodium + need.sulfate + need.chloride + need.bicarbonate
-      if (totalNeed <= 1) break // close enough in ppm
+      if (totalNeed <= 5) break // close enough in ppm
 
-      // Score each salt by how well it addresses current deficits
+      // Score each salt by how well it addresses current deficits WITHOUT overshooting
       let bestSalt: string | null = null
-      let bestScore = 0
+      let bestScore = -1000
+      let bestAmount = 0
+      
       for (const id of candidateSaltIds) {
         const salt = (SALT_DEFINITIONS as any)[id]
         const ions = salt.ionsPPMPerGram || {}
-        const score =
-          (ions.calcium || 0) * weights.calcium * Math.min(1, need.calcium / Math.max(1, ions.calcium || 1)) +
-          (ions.magnesium || 0) * weights.magnesium * Math.min(1, need.magnesium / Math.max(1, ions.magnesium || 1)) +
-          (ions.sodium || 0) * weights.sodium * Math.min(1, need.sodium / Math.max(1, ions.sodium || 1)) +
-          (ions.sulfate || 0) * weights.sulfate * Math.min(1, need.sulfate / Math.max(1, ions.sulfate || 1)) +
-          (ions.chloride || 0) * weights.chloride * Math.min(1, need.chloride / Math.max(1, ions.chloride || 1)) +
-          (ions.bicarbonate || 0) * weights.bicarbonate * Math.min(1, need.bicarbonate / Math.max(1, ions.bicarbonate || 1))
+        
+        // Calculate how much of this salt we can add without overshooting any ion
+        const maxAmounts: number[] = []
+        
+        // For each ion this salt provides, calculate max amount that won't overshoot
+        if (ions.calcium > 0) {
+          const maxForCalcium = need.calcium > 0 ? need.calcium / ions.calcium : 
+                                (target.calcium - source.calcium + 20) / ions.calcium // Allow 20ppm overshoot
+          maxAmounts.push(Math.max(0, maxForCalcium))
+        }
+        if (ions.magnesium > 0) {
+          const maxForMagnesium = need.magnesium > 0 ? need.magnesium / ions.magnesium :
+                                  (target.magnesium - source.magnesium + 10) / ions.magnesium
+          maxAmounts.push(Math.max(0, maxForMagnesium))
+        }
+        if (ions.sodium > 0) {
+          const maxForSodium = need.sodium > 0 ? need.sodium / ions.sodium :
+                               (target.sodium - source.sodium + 15) / ions.sodium
+          maxAmounts.push(Math.max(0, maxForSodium))
+        }
+        if (ions.sulfate > 0) {
+          const maxForSulfate = need.sulfate > 0 ? need.sulfate / ions.sulfate :
+                                (target.sulfate - source.sulfate + 50) / ions.sulfate
+          maxAmounts.push(Math.max(0, maxForSulfate))
+        }
+        if (ions.chloride > 0) {
+          const maxForChloride = need.chloride > 0 ? need.chloride / ions.chloride :
+                                 (target.chloride - source.chloride + 25) / ions.chloride
+          maxAmounts.push(Math.max(0, maxForChloride))
+        }
+        if (ions.bicarbonate > 0) {
+          const maxForBicarbonate = need.bicarbonate > 0 ? need.bicarbonate / ions.bicarbonate :
+                                    (target.bicarbonate - source.bicarbonate + 30) / ions.bicarbonate
+          maxAmounts.push(Math.max(0, maxForBicarbonate))
+        }
+        
+        if (maxAmounts.length === 0) continue
+        
+        // Use the minimum to avoid overshooting any ion
+        const maxGramsPerLiter = Math.min(...maxAmounts)
+        if (maxGramsPerLiter <= 0.01) continue // Skip if amount is too small
+        
+        // Calculate score based on how much deficit this would address
+        let score = 0
+        let addressed = 0
+        
+        if (ions.calcium && need.calcium > 0) {
+          const reduction = Math.min(need.calcium, ions.calcium * maxGramsPerLiter)
+          score += reduction * weights.calcium
+          addressed += reduction
+        }
+        if (ions.magnesium && need.magnesium > 0) {
+          const reduction = Math.min(need.magnesium, ions.magnesium * maxGramsPerLiter)
+          score += reduction * weights.magnesium
+          addressed += reduction
+        }
+        if (ions.sodium && need.sodium > 0) {
+          const reduction = Math.min(need.sodium, ions.sodium * maxGramsPerLiter)
+          score += reduction * weights.sodium
+          addressed += reduction
+        }
+        if (ions.sulfate && need.sulfate > 0) {
+          const reduction = Math.min(need.sulfate, ions.sulfate * maxGramsPerLiter)
+          score += reduction * weights.sulfate
+          addressed += reduction
+        }
+        if (ions.chloride && need.chloride > 0) {
+          const reduction = Math.min(need.chloride, ions.chloride * maxGramsPerLiter)
+          score += reduction * weights.chloride
+          addressed += reduction
+        }
+        if (ions.bicarbonate && need.bicarbonate > 0) {
+          const reduction = Math.min(need.bicarbonate, ions.bicarbonate * maxGramsPerLiter)
+          score += reduction * weights.bicarbonate
+          addressed += reduction
+        }
+        
+        // Bonus for addressing multiple needs
+        if (addressed > 0) {
+          score = score / addressed // Normalize by amount addressed
+        }
+        
         if (score > bestScore) {
           bestScore = score
           bestSalt = id
+          bestAmount = maxGramsPerLiter
         }
       }
 
-      if (!bestSalt) break
+      if (!bestSalt || bestAmount <= 0) break
 
-      // Compute grams needed based on limiting ion for the chosen salt
+      // Apply the best salt addition
       const salt = (SALT_DEFINITIONS as any)[bestSalt]
       const ions = salt.ionsPPMPerGram || {}
-      const limitingRatios: number[] = []
-      if (ions.calcium && need.calcium > 0) limitingRatios.push(need.calcium / ions.calcium)
-      if (ions.magnesium && need.magnesium > 0) limitingRatios.push(need.magnesium / ions.magnesium)
-      if (ions.sodium && need.sodium > 0) limitingRatios.push(need.sodium / ions.sodium)
-      if (ions.sulfate && need.sulfate > 0) limitingRatios.push(need.sulfate / ions.sulfate)
-      if (ions.chloride && need.chloride > 0) limitingRatios.push(need.chloride / ions.chloride)
-      if (ions.bicarbonate && need.bicarbonate > 0) limitingRatios.push(need.bicarbonate / ions.bicarbonate)
-
-      if (limitingRatios.length === 0) break
-
-      // grams per liter to satisfy the most constrained ion
-      const gPerL = Math.max(0, Math.min(...limitingRatios))
-      if (gPerL <= 0) break
-
-      // Apply a fraction to avoid overshoot and iterate
-      const appliedGrams = Math.min(gPerL * volumeLiters, 50) // cap to 50g total each step for safety
+      
+      // Use conservative amount (80% of max) to avoid overshoot in iterations
+      const appliedGramsPerLiter = bestAmount * 0.8
+      const appliedGrams = appliedGramsPerLiter * volumeLiters
+      
+      if (appliedGrams < 0.1) continue // Skip tiny additions
+      
       additions[bestSalt] = (additions[bestSalt] || 0) + appliedGrams
 
       // Update source water with contributions from this addition
-      const gramsPerLiter = appliedGrams / volumeLiters
-      if (ions.calcium) source.calcium += ions.calcium * gramsPerLiter
-      if (ions.magnesium) source.magnesium += ions.magnesium * gramsPerLiter
-      if (ions.sodium) source.sodium += ions.sodium * gramsPerLiter
-      if (ions.sulfate) source.sulfate += ions.sulfate * gramsPerLiter
-      if (ions.chloride) source.chloride += ions.chloride * gramsPerLiter
-      if (ions.bicarbonate) source.bicarbonate += ions.bicarbonate * gramsPerLiter
+      if (ions.calcium) source.calcium += ions.calcium * appliedGramsPerLiter
+      if (ions.magnesium) source.magnesium += ions.magnesium * appliedGramsPerLiter
+      if (ions.sodium) source.sodium += ions.sodium * appliedGramsPerLiter
+      if (ions.sulfate) source.sulfate += ions.sulfate * appliedGramsPerLiter
+      if (ions.chloride) source.chloride += ions.chloride * appliedGramsPerLiter
+      if (ions.bicarbonate) source.bicarbonate += ions.bicarbonate * appliedGramsPerLiter
     }
 
     // Convert to adjustment list
@@ -363,8 +597,11 @@ export class WaterChemistryEngine {
       totalBufferCapacity += grainData.bufferCapacity * grain.amountKg
     }
 
-    // mEq needed for desired pH shift (empirical safety factor 1.2)
-    const mEqNeeded = pHDifference * (totalBufferCapacity / 1000) * 1.2
+    // mEq needed for desired pH shift
+    // Buffer capacity is already in mEq/kg, so totalBufferCapacity is in mEq
+    // We need to multiply by pH difference to get total mEq needed
+    // Empirical correction factor of 1.5 for real-world conditions
+    const mEqNeeded = pHDifference * totalBufferCapacity * 1.5
     return mEqNeeded
   }
 
@@ -457,6 +694,78 @@ export class WaterChemistryEngine {
       effectiveHardness,
       totalHardness
     }
+  }
+
+  private calculatePredictionsEnhanced(
+    water: WaterProfile, 
+    grainBill: GrainBillItem[], 
+    mashVolumeLiters: number,
+    pHProgression: { basePH: number; sourcePH: number; afterSaltsPH: number; finalPH: number }
+  ) {
+    // Calculate proper residual alkalinity using Kolbach's formula
+    const residualAlkalinity = this.calculateResidualAlkalinity(water)
+    
+    // Sulfate to chloride ratio
+    const sulfateChlorideRatio = water.sulfate / Math.max(water.chloride, 1)
+    
+    // Effective hardness (Ca + Mg)
+    const effectiveHardness = water.calcium + water.magnesium
+    
+    // Total hardness as CaCO3
+    const totalHardness = water.calcium * 2.5 + water.magnesium * 4.1
+    
+    return {
+      // pH progression values
+      basePH: pHProgression.basePH,
+      sourcePH: pHProgression.sourcePH,
+      afterSaltsPH: pHProgression.afterSaltsPH,
+      finalPH: pHProgression.finalPH,
+      
+      // Legacy fields for backwards compatibility
+      mashPH: pHProgression.afterSaltsPH,
+      
+      // Other predictions
+      residualAlkalinity,
+      sulfateChlorideRatio,
+      effectiveHardness,
+      totalHardness
+    }
+  }
+
+  private estimateFinalPH(
+    currentPH: number,
+    acidAdjustments: Array<{ id: string; name: string; amount: number; unit: string }>,
+    grainBill: GrainBillItem[],
+    mashVolumeLiters: number
+  ): number {
+    if (acidAdjustments.length === 0) {
+      return currentPH
+    }
+
+    // Calculate total mEq from acid adjustments
+    let totalMEq = 0
+    for (const acid of acidAdjustments) {
+      if (acid.unit === 'ml') {
+        // Extract acid type and concentration from id
+        const parts = acid.id.split('_')
+        const acidType = parts[0] as 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
+        const concentration = parseInt(parts[2])
+        const strength = this.getAcidStrength(acidType, concentration)
+        totalMEq += acid.amount * strength
+      }
+    }
+
+    // Calculate buffer capacity
+    const totalGrainKg = grainBill.reduce((sum, grain) => sum + grain.amountKg, 0)
+    let totalBufferCapacity = 0
+    for (const grain of grainBill) {
+      const grainData = lookupGrainData(grain.name, grain.color)
+      totalBufferCapacity += grainData.bufferCapacity * grain.amountKg
+    }
+
+    // Estimate pH change (inverse of acid calculation)
+    const pHChange = totalMEq / (totalBufferCapacity * 1.5)
+    return currentPH - pHChange
   }
 
   // Enhanced mash pH calculation with better specialty grain handling

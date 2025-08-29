@@ -114,6 +114,11 @@ Följande profiler finns i `src/data/standard-profiles.ts`:
 
 Varje profil specificerar Ca, Mg, Na, SO4, Cl, HCO3, CO3, pH.
 
+## Stilprofiler
+Stilorienterade mål (midpoints) finns i `src/data/style-profiles.ts` och nås via `GET /api/styles`:
+- German Pilsner, American IPA, NEIPA, Stout, Munich Helles, ESB, Saison, Amber Ale.
+Varje post innehåller rekommenderade målvärden för Ca, Mg, Na (valfritt), SO4, Cl, HCO3 samt en indikativ SO4:Cl-kvot.
+
 ## Stöd för manuella justeringar
 - `manualAdjustments.salts`: godtyckliga gram per salt-id (t.ex. `gypsum: 7`).
 - `manualAdjustments.acids`: reserverat fält; mash-syra räknas automatiskt om pH är högt, men explicit fördelning mash/sparge görs inte i svaret.
