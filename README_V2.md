@@ -120,6 +120,32 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 #### Validering (Vercel endpoint)
 - `POST /api/validate` - Validera planerade tillsatser och få pH/varningar
 
+#### pH-modellval i requests
+- Stöd för `phModel: "simple" | "kaiser"` i både `/api/calculate` och `/api/validate`.
+
+Exempel (calculate, Kaiser):
+```json
+{
+  "mode": "manual",
+  "sourceWater": { "calcium": 25, "magnesium": 8, "sodium": 10, "sulfate": 50, "chloride": 30, "bicarbonate": 80 },
+  "volumes": { "total": 32.2, "mash": 17, "sparge": 15.2 },
+  "grainBill": [ { "name": "Pilsner Malt", "weight": 5.0, "color": 3, "type": "base" } ],
+  "additions": { "salts": { "gypsum": 2.0 } },
+  "phModel": "kaiser"
+}
+```
+
+Exempel (validate, Kaiser):
+```json
+{
+  "plannedAdditions": { "salts": { "gypsum": 2.0, "calcium_chloride": 1.0 } },
+  "sourceWater": { "calcium": 25, "magnesium": 8, "sodium": 10, "sulfate": 50, "chloride": 30, "bicarbonate": 80 },
+  "volumes": { "total": 32.2, "mash": 17, "sparge": 15.2 },
+  "grainBill": [ { "name": "Maris Otter", "weight": 5.0, "color": 6, "type": "base" } ],
+  "phModel": "kaiser"
+}
+```
+
 #### Stilprofiler
 - `GET /api/v2/profiles/styles` - Lista alla stilprofiler
 - `GET /api/v2/profiles/styles/:id` - Hämta specifik stil (t.ex. "american-ipa")

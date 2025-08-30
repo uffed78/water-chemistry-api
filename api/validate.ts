@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import type { WaterProfile, Volumes, GrainBillItem } from '../src/v2/types'
 import { calculateSaltContribution } from '../src/v2/calculations/ppm'
-import { calculateMashPH_Simple } from '../src/v2/calculations/ph'
+import { calculateMashPH_Simple, calculateMashPH_Kaiser } from '../src/v2/calculations/ph'
 import { SALTS } from '../src/v2/data/salts'
 import { ION_LIMITS } from '../src/v2/data/constants'
 
@@ -14,11 +14,12 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { plannedAdditions, sourceWater, grainBill, volumes } = req.body as {
+    const { plannedAdditions, sourceWater, grainBill, volumes, phModel } = req.body as {
       plannedAdditions: { salts: Record<string, number> }
       sourceWater: WaterProfile
       grainBill: GrainBillItem[]
       volumes: Volumes
+      phModel?: 'simple' | 'kaiser'
     }
 
     if (!plannedAdditions || !sourceWater || !grainBill || !volumes) {
@@ -40,11 +41,15 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Simple predictions
-    const mashPH = calculateMashPH_Simple(
-      achieved,
-      grainBill.map(g => ({ color: g.color, weight: g.weight })),
-      volumes
-    )
+    const totalGrainKg = Math.max(0.0001, grainBill.reduce((s, g) => s + g.weight, 0))
+    const mashThickness = Math.max(0.1, volumes.mash / totalGrainKg)
+    const mashPH = phModel === 'kaiser'
+      ? calculateMashPH_Kaiser(achieved, grainBill, mashThickness, 65)
+      : calculateMashPH_Simple(
+          achieved,
+          grainBill.map(g => ({ color: g.color, weight: g.weight })),
+          volumes
+        )
 
     // Issues
     const issues: { severity: 'error' | 'warning' | 'info'; message: string; suggestion?: string }[] = []

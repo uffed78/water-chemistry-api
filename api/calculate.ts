@@ -3,7 +3,7 @@ import { SALTS } from '../src/v2/data/salts'
 import type { VolumeMode, WaterProfile, Volumes, GrainBillItem } from '../src/v2/types'
 import { calculateSaltContribution } from '../src/v2/calculations/ppm'
 import { optimizeWaterSimple } from '../src/v2/calculations/optimize'
-import { calculateMashPH_Simple } from '../src/v2/calculations/ph'
+import { calculateMashPH_Simple, calculateMashPH_Kaiser } from '../src/v2/calculations/ph'
 
 type Mode = 'manual' | 'auto'
 
@@ -32,6 +32,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       mode?: Mode
       volumeMode?: VolumeMode
       additions?: { salts: Record<string, number> }
+      phModel?: 'simple' | 'kaiser'
     }
 
     if (!sourceWater || !grainBill || !volumes) {
@@ -54,11 +55,18 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         achieved.bicarbonate += c.bicarbonate
       }
 
-      const mashPH = calculateMashPH_Simple(
-        achieved,
-        grainBill.map(g => ({ color: g.color, weight: g.weight })),
-        volumes
-      )
+      const phModel = (req.body?.phModel as 'simple' | 'kaiser') || 'simple'
+      const mashThickness = (() => {
+        const totalGrainKg = Math.max(0.0001, grainBill.reduce((s, g) => s + g.weight, 0))
+        return Math.max(0.1, volumes.mash / totalGrainKg)
+      })()
+      const mashPH = phModel === 'kaiser'
+        ? calculateMashPH_Kaiser(achieved, grainBill, mashThickness, 65)
+        : calculateMashPH_Simple(
+            achieved,
+            grainBill.map(g => ({ color: g.color, weight: g.weight })),
+            volumes
+          )
 
       return res.status(200).json({
         achieved,
@@ -85,11 +93,16 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       achieved.bicarbonate += c.bicarbonate
     }
 
-    const mashPH = calculateMashPH_Simple(
-      achieved,
-      grainBill.map(g => ({ color: g.color, weight: g.weight })),
-      volumes
-    )
+    const phModel = (req.body?.phModel as 'simple' | 'kaiser') || 'simple'
+    const totalGrainKg = Math.max(0.0001, grainBill.reduce((s, g) => s + g.weight, 0))
+    const mashThickness = Math.max(0.1, volumes.mash / totalGrainKg)
+    const mashPH = phModel === 'kaiser'
+      ? calculateMashPH_Kaiser(achieved, grainBill, mashThickness, 65)
+      : calculateMashPH_Simple(
+          achieved,
+          grainBill.map(g => ({ color: g.color, weight: g.weight })),
+          volumes
+        )
 
     return res.status(200).json({ additions: salts, achieved, predictions: { mashPH }, volumeMode })
   } catch (error) {
