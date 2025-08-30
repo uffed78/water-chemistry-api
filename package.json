@@ -4,7 +4,7 @@
   "description": "Precision brewing water chemistry calculation API",
   "main": "index.js",
   "scripts": {
-    "dev": "npx ts-node src/server.ts",
+    "dev": "vercel dev",
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",

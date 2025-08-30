@@ -111,10 +111,14 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 - `POST /api/v2/calculate/manual` - Manuell beräkning (användaren anger salter)
 - `POST /api/v2/calculate/auto` - Automatisk optimering mot målprofil
 
-#### Vattenprofiler
-- `GET /api/v2/profiles/water` - Lista alla vattenprofiler
-- `GET /api/v2/profiles/water/:id` - Hämta specifik profil (t.ex. "burton")
-- `GET /api/v2/profiles/water/style/:style` - Rekommenderade profiler för ölstil
+#### Vatten- och stilprofiler (Vercel endpoints)
+- `GET /api/profiles?type=water` - Lista alla vattenprofiler (id:n)
+- `GET /api/profiles?type=water&id=burton` - Hämta specifik vattenprofil
+- `GET /api/profiles?type=style` - Lista alla stilprofiler (id:n)
+- `GET /api/profiles?type=style&id=american_ipa` - Hämta specifik stilprofil
+
+#### Validering (Vercel endpoint)
+- `POST /api/validate` - Validera planerade tillsatser och få pH/varningar
 
 #### Stilprofiler
 - `GET /api/v2/profiles/styles` - Lista alla stilprofiler
@@ -135,40 +139,23 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 ### Arkitektur
 ```
 src/
+  v2/
+    calculations/
+      ppm.ts                # PPM-beräkning, mash som default
+      optimize.ts           # Enkel optimering
+      ph.ts                 # Enkel pH-modell
+    data/
+      water-profiles.json   # Klassiska vattenprofiler
+      style-profiles.json   # Stilprofiler
+    types/
+      index.ts              # Tunn typ-reexport för v2
   core/
-    types.ts                 # TypeScript interfaces
-    constants.ts             # Kemiska konstanter, salter, syror
-  models/
-    water/
-      ppm-calculator.ts      # PPM-beräkningar (FIXAD!)
-      volume-modes.ts        # Volymlägeshantering
-      staged-distribution.ts # Avancerad staged mode
-    ph/
-      simple.ts              # Enkel pH-modell
-      kaiser.ts              # Kaiser pH-modell
-    optimization/
-      balanced.ts            # Balanserad optimering
-      minimal.ts             # Minimal optimering
-      exact.ts               # Exakt optimering
-  profiles/
-    water/
-      classic-profiles.json  # 10 klassiska vattenprofiler
-    styles/
-      beer-styles.json       # 12 ölstilsprofiler
-  endpoints/
-    calculate/
-      manual.ts              # Manual calculation
-      auto.ts                # Auto calculation
-    profiles/
-      water.ts               # Vattenprofil-endpoints
-      styles.ts              # Stilprofil-endpoints
-    validate/
-      validate.ts            # Receptvalidering
-  tests/
-    ppm-calculator.test.ts   # PPM-tester
-    volume-modes.test.ts     # Volymlägestester
-    ph-models.test.ts        # pH-modell-tester
-  server.ts                  # Express server
+    types.ts                # Befintliga typer (återanvänds)
+    constants.ts            # Salter m.m. (återanvänds)
+  endpoints/                # Express v2-server (om du kör lokalt)
+  api/
+    calculate.ts            # Vercel calculate → använder v2-moduler
+    profiles.ts             # Vercel profiler (water/style) → v2/data
 ```
 
 ### Viktigaste ändringen

@@ -11,23 +11,28 @@ A precision brewing water chemistry calculation API designed to match Bru'n Wate
 - **CORS-Enabled** - Ready for frontend integration
 - **TypeScript** - Fully typed for better development experience
 
-## 🏗️ Project Structure
+## 🏗️ Project Structure (v2)
 
 ```
 water-chemistry-api/
-├── api/                    # Vercel serverless functions
-│   ├── calculate.ts        # POST /api/calculate
-│   ├── profiles.ts         # GET /api/profiles
-│   ├── salts.ts           # GET /api/salts
-│   └── styles.ts          # GET /api/styles
-├── src/
-│   ├── core/              # Core calculation logic
-│   │   ├── types.ts       # TypeScript interfaces
-│   │   ├── calculations.ts # Main calculation engine
-│   │   └── salts.ts       # Salt definitions & properties
-│   └── data/              # Static data
-│       └── standard-profiles.ts # Famous water profiles
-└── dist/                  # Compiled JavaScript
+├── api/
+│   ├── calculate.ts         # POST /api/calculate (manual|auto)
+│   ├── profiles.ts          # GET /api/profiles?type=water|style[&id]
+│   └── validate.ts          # POST /api/validate
+└── src/
+    └── v2/
+        ├── calculations/
+        │   ├── ppm.ts       # PPM-beräkningar (mash default)
+        │   ├── optimize.ts  # Enkel optimering
+        │   └── ph.ts        # Enkel pH-modell
+        ├── data/
+        │   ├── salts.ts
+        │   ├── acids.ts
+        │   ├── water-profiles.json
+        │   ├── style-profiles.json
+        │   └── constants.ts
+        └── types/
+            └── index.ts
 ```
 
 ## 🚀 Quick Start
@@ -61,143 +66,26 @@ node test-local.js
 
 ## 🔧 API Endpoints
 
-### GET /api/salts
-
-Returns all available brewing salts with their chemical properties.
-
-**Response:**
-```json
-{
-  "gypsum": {
-    "id": "gypsum",
-    "name": "Gypsum",
-    "formula": "CaSO₄·2H₂O",
-    "molarMass": 172.17,
-    "ionsPPMPerGram": {
-      "calcium": 232.5,
-      "sulfate": 557.7
-    }
-  }
-}
-```
-
 ### GET /api/profiles
 
-Returns standard brewing water profiles.
-
-**Response:**
-```json
-[
-  {
-    "id": "pilsen",
-    "name": "Pilsen",
-    "calcium": 7,
-    "magnesium": 2,
-    "sulfate": 5,
-    "chloride": 5,
-    "bicarbonate": 35,
-    "ph": 7.0
-  }
-]
-```
+- `GET /api/profiles?type=water` → listar tillgängliga vattenprofil-id:n
+- `GET /api/profiles?type=water&id=burton` → specifik vattenprofil
+- `GET /api/profiles?type=style` → listar stilprofil-id:n
+- `GET /api/profiles?type=style&id=american_ipa` → specifik stilprofil
 
 ### POST /api/calculate
 
-Performs water chemistry calculations.
+Beräknar vattenkemi.
 
-**Request:**
-```json
-{
-  "sourceWater": {
-    "name": "My Tap Water",
-    "calcium": 50,
-    "magnesium": 10,
-    "sodium": 15,
-    "sulfate": 40,
-    "chloride": 20,
-    "bicarbonate": 100,
-    "carbonate": 0,
-    "ph": 7.2
-  },
-  "grainBill": [
-    {
-      "name": "Pilsner Malt",
-      "amountKg": 5,
-      "color": 2,
-      "grainType": "base"
-    }
-  ],
-  "volumes": {
-    "total": 30,
-    "mash": 15,
-    "sparge": 15
-  },
-  "units": "metric"
-}
-```
+- Manual: ange `additions.salts` (gram) och få achieved + pH
+- Auto: ange `mode:'auto'` och `targetWater` för enkel optimering
+- Default: `volumeMode: 'mash'` (matchar Bru'n Water)
 
-#### Optional: Acid Preferences
-You can specify which acid and concentration to use for mash and/or sparge acidification. If omitted, mash defaults to lactic 88% and sparge is not added automatically.
+Se `README_V2.md` för exempel.
 
-```json
-{
-  "acidPreferences": {
-    "mash": { "type": "phosphoric", "concentrationPct": 85 },
-    "sparge": { "type": "lactic", "concentrationPct": 88, "targetPH": 5.5 }
-  }
-}
-```
+### POST /api/validate
 
-Supported acids and concentrations (mEq/mL internal mapping):
-- lactic: 88, 80, 50, 10
-- phosphoric: 85, 75, 10
-- hydrochloric: 37, 31, 10
-- sulfuric: 96, 93, 10
-
-If an unsupported concentration is passed, the nearest known strength is used.
-
-#### Optional: Salt Preferences
-Limit which salts may be used by the automatic recommender:
-```json
-{
-  "saltPreferences": {
-    "allowedSalts": ["gypsum", "calcium_chloride", "sodium_chloride"]
-  }
-}
-```
-Supported salt ids: `gypsum`, `calcium_chloride`, `epsom_salt`, `magnesium_chloride`, `sodium_chloride`, `baking_soda`, `calcium_carbonate`, `calcium_hydroxide`.
-
-**Response:**
-```json
-{
-  "success": true,
-  "sourceWater": { ... },
-  "achievedWater": { ... },
-  "adjustments": {
-    "salts": [
-      {
-        "id": "gypsum",
-        "name": "Gypsum",
-        "amount": 2.0,
-        "unit": "g"
-      }
-    ],
-    "acids": []
-  },
-  "predictions": {
-    "mashPH": 5.52,
-    "finalPH": 5.42,
-    "residualAlkalinity": 85.7,
-    "sulfateChlorideRatio": 2.0,
-    "effectiveHardness": 54.0
-  },
-  "warnings": [],
-  "recommendations": []
-}
-```
-
-Notes:
-- When `acidPreferences.sparge` is provided, a separate acid entry labelled with "(Sparge)" is included in `adjustments.acids`.
+Validerar planerade tillsatser mot riktvärden och ger pH-prognos + varningar.
 - Salt additions are computed against total volume; mash/sparge splitting can be applied in the client. See `API-CAPABILITIES.md` for a minimal helper function and guidelines.
 
 ## 🧪 Testing

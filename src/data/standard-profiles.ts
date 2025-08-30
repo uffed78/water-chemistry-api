@@ -1,6 +1,8 @@
 import { WaterProfile } from '../core/types'
 
-export const STANDARD_PROFILES: WaterProfile[] = [
+export type WaterProfileEntry = WaterProfile & { id: string; name: string }
+
+export const STANDARD_PROFILES: WaterProfileEntry[] = [
   {
     id: 'pilsen',
     name: 'Pilsen',
