@@ -1,0 +1,302 @@
+{
+  "american-ipa": {
+    "id": "american-ipa",
+    "name": "American IPA",
+    "category": "Hoppy",
+    "og": [1.056, 1.070],
+    "fg": [1.008, 1.014],
+    "ibu": [40, 70],
+    "srm": [6, 14],
+    "abv": [5.5, 7.5],
+    "targetWater": {
+      "calcium": [100, 150],
+      "magnesium": [5, 15],
+      "sodium": [0, 50],
+      "sulfate": [200, 350],
+      "chloride": [40, 70],
+      "bicarbonate": [0, 50]
+    },
+    "sulfateChlorideRatio": [3, 5],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "High sulfate enhances hop bitterness and aroma. Keep chloride low for crisp finish.",
+      "salts": "Gypsum is essential. Avoid sodium and bicarbonate.",
+      "ph": "Lower pH (5.2-5.3) enhances hop flavor extraction."
+    }
+  },
+  "english-ipa": {
+    "id": "english-ipa",
+    "name": "English IPA",
+    "category": "Hoppy",
+    "og": [1.050, 1.070],
+    "fg": [1.010, 1.015],
+    "ibu": [40, 60],
+    "srm": [8, 14],
+    "abv": [5.0, 7.5],
+    "targetWater": {
+      "calcium": [200, 300],
+      "magnesium": [20, 40],
+      "sodium": [20, 50],
+      "sulfate": [400, 600],
+      "chloride": [30, 60],
+      "bicarbonate": [100, 200]
+    },
+    "sulfateChlorideRatio": [5, 10],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "Burton water profile with very high sulfate. Creates 'Burton Snatch'.",
+      "salts": "Heavy gypsum additions typical. Some carbonate acceptable.",
+      "ph": "Moderate alkalinity can work with English malts."
+    }
+  },
+  "german-pilsner": {
+    "id": "german-pilsner",
+    "name": "German Pilsner",
+    "category": "Crisp",
+    "og": [1.044, 1.050],
+    "fg": [1.008, 1.013],
+    "ibu": [25, 45],
+    "srm": [2, 5],
+    "abv": [4.4, 5.2],
+    "targetWater": {
+      "calcium": [40, 60],
+      "magnesium": [5, 10],
+      "sodium": [0, 20],
+      "sulfate": [50, 120],
+      "chloride": [50, 100],
+      "bicarbonate": [0, 50]
+    },
+    "sulfateChlorideRatio": [0.8, 1.5],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "Soft to moderate mineral content. Balanced sulfate and chloride.",
+      "salts": "Minimal additions to soft water. Small amounts of CaCl2 and gypsum.",
+      "ph": "Acidification often needed with soft water."
+    }
+  },
+  "czech-pilsner": {
+    "id": "czech-pilsner",
+    "name": "Czech Pilsner",
+    "category": "Crisp",
+    "og": [1.044, 1.056],
+    "fg": [1.013, 1.017],
+    "ibu": [30, 45],
+    "srm": [3, 6],
+    "abv": [4.2, 5.4],
+    "targetWater": {
+      "calcium": [30, 50],
+      "magnesium": [2, 8],
+      "sodium": [2, 10],
+      "sulfate": [5, 30],
+      "chloride": [5, 30],
+      "bicarbonate": [15, 50]
+    },
+    "sulfateChlorideRatio": [0.5, 1.5],
+    "targetMashPH": [5.3, 5.4],
+    "notes": {
+      "water": "Very soft water essential. Pilsen water profile ideal.",
+      "salts": "Minimal or no salt additions. Water should be very soft.",
+      "ph": "Decoction mashing traditionally used to achieve proper pH."
+    }
+  },
+  "irish-stout": {
+    "id": "irish-stout",
+    "name": "Irish Stout",
+    "category": "Dark",
+    "og": [1.036, 1.044],
+    "fg": [1.007, 1.011],
+    "ibu": [25, 45],
+    "srm": [25, 40],
+    "abv": [4.0, 4.5],
+    "targetWater": {
+      "calcium": [100, 150],
+      "magnesium": [4, 10],
+      "sodium": [10, 25],
+      "sulfate": [50, 100],
+      "chloride": [15, 50],
+      "bicarbonate": [100, 200]
+    },
+    "sulfateChlorideRatio": [1, 3],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "High bicarbonate balances roasted malt acidity. Dublin water classic.",
+      "salts": "Calcium carbonate or bicarbonate often needed.",
+      "ph": "Alkalinity needed to balance dark malts."
+    }
+  },
+  "american-stout": {
+    "id": "american-stout",
+    "name": "American Stout",
+    "category": "Dark",
+    "og": [1.050, 1.075],
+    "fg": [1.010, 1.022],
+    "ibu": [35, 75],
+    "srm": [30, 40],
+    "abv": [5.0, 7.0],
+    "targetWater": {
+      "calcium": [100, 150],
+      "magnesium": [10, 20],
+      "sodium": [20, 70],
+      "sulfate": [100, 200],
+      "chloride": [50, 150],
+      "bicarbonate": [100, 300]
+    },
+    "sulfateChlorideRatio": [0.5, 2],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "More sulfate than Irish stout for hop character.",
+      "salts": "Balance between hop and malt character.",
+      "ph": "Alkalinity helps balance roasted malts."
+    }
+  },
+  "munich-helles": {
+    "id": "munich-helles",
+    "name": "Munich Helles",
+    "category": "Malty",
+    "og": [1.044, 1.048],
+    "fg": [1.006, 1.012],
+    "ibu": [16, 22],
+    "srm": [3, 5],
+    "abv": [4.7, 5.4],
+    "targetWater": {
+      "calcium": [50, 80],
+      "magnesium": [5, 20],
+      "sodium": [0, 10],
+      "sulfate": [10, 30],
+      "chloride": [50, 100],
+      "bicarbonate": [50, 150]
+    },
+    "sulfateChlorideRatio": [0.2, 0.5],
+    "targetMashPH": [5.3, 5.5],
+    "notes": {
+      "water": "Higher chloride for malt sweetness. Low sulfate.",
+      "salts": "Calcium chloride preferred over gypsum.",
+      "ph": "Moderate carbonate acceptable."
+    }
+  },
+  "oktoberfest": {
+    "id": "oktoberfest",
+    "name": "Oktoberfest/Märzen",
+    "category": "Malty",
+    "og": [1.050, 1.057],
+    "fg": [1.010, 1.014],
+    "ibu": [18, 24],
+    "srm": [8, 14],
+    "abv": [5.6, 6.0],
+    "targetWater": {
+      "calcium": [50, 100],
+      "magnesium": [10, 25],
+      "sodium": [0, 20],
+      "sulfate": [50, 100],
+      "chloride": [50, 100],
+      "bicarbonate": [100, 200]
+    },
+    "sulfateChlorideRatio": [0.5, 1.5],
+    "targetMashPH": [5.3, 5.5],
+    "notes": {
+      "water": "Balanced profile with moderate minerals.",
+      "salts": "Moderate calcium carbonate for Munich malts.",
+      "ph": "Decoction mashing traditional."
+    }
+  },
+  "belgian-wit": {
+    "id": "belgian-wit",
+    "name": "Belgian Witbier",
+    "category": "Wheat",
+    "og": [1.044, 1.052],
+    "fg": [1.008, 1.012],
+    "ibu": [8, 20],
+    "srm": [2, 4],
+    "abv": [4.5, 5.5],
+    "targetWater": {
+      "calcium": [40, 80],
+      "magnesium": [5, 15],
+      "sodium": [20, 50],
+      "sulfate": [50, 100],
+      "chloride": [50, 100],
+      "bicarbonate": [50, 150]
+    },
+    "sulfateChlorideRatio": [0.8, 1.2],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "Moderate mineral content. Some sodium acceptable.",
+      "salts": "Balanced additions. Some salt (NaCl) traditional.",
+      "ph": "Wheat raises pH - acidification often needed."
+    }
+  },
+  "hefeweizen": {
+    "id": "hefeweizen",
+    "name": "German Hefeweizen",
+    "category": "Wheat",
+    "og": [1.044, 1.052],
+    "fg": [1.010, 1.014],
+    "ibu": [8, 15],
+    "srm": [2, 6],
+    "abv": [4.3, 5.6],
+    "targetWater": {
+      "calcium": [50, 100],
+      "magnesium": [5, 20],
+      "sodium": [0, 20],
+      "sulfate": [10, 50],
+      "chloride": [50, 100],
+      "bicarbonate": [50, 200]
+    },
+    "sulfateChlorideRatio": [0.2, 0.8],
+    "targetMashPH": [5.2, 5.4],
+    "notes": {
+      "water": "Soft to moderate minerals. Higher chloride for smoothness.",
+      "salts": "Calcium chloride preferred. Avoid sulfate.",
+      "ph": "High wheat content requires pH adjustment."
+    }
+  },
+  "neipa": {
+    "id": "neipa",
+    "name": "New England IPA",
+    "category": "Hoppy",
+    "og": [1.060, 1.085],
+    "fg": [1.010, 1.015],
+    "ibu": [25, 60],
+    "srm": [3, 7],
+    "abv": [6.0, 9.0],
+    "targetWater": {
+      "calcium": [100, 200],
+      "magnesium": [10, 20],
+      "sodium": [20, 50],
+      "sulfate": [100, 150],
+      "chloride": [150, 250],
+      "bicarbonate": [0, 50]
+    },
+    "sulfateChlorideRatio": [0.5, 0.8],
+    "targetMashPH": [5.3, 5.5],
+    "notes": {
+      "water": "High chloride for soft mouthfeel. Moderate sulfate.",
+      "salts": "Heavy calcium chloride use. Some gypsum acceptable.",
+      "ph": "Higher pH (5.4-5.5) for softer hop character."
+    }
+  },
+  "west-coast-ipa": {
+    "id": "west-coast-ipa",
+    "name": "West Coast IPA",
+    "category": "Hoppy",
+    "og": [1.060, 1.075],
+    "fg": [1.010, 1.018],
+    "ibu": [50, 90],
+    "srm": [5, 10],
+    "abv": [6.3, 7.5],
+    "targetWater": {
+      "calcium": [100, 150],
+      "magnesium": [5, 15],
+      "sodium": [0, 30],
+      "sulfate": [250, 400],
+      "chloride": [50, 75],
+      "bicarbonate": [0, 30]
+    },
+    "sulfateChlorideRatio": [4, 7],
+    "targetMashPH": [5.2, 5.3],
+    "notes": {
+      "water": "Very high sulfate for aggressive hop bitterness.",
+      "salts": "Heavy gypsum additions. Minimal chloride.",
+      "ph": "Low pH enhances hop crispness."
+    }
+  }
+}

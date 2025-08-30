@@ -1,145 +1,130 @@
 export interface WaterProfile {
-  id?: string
-  name: string
-  calcium: number      // mg/L (ppm)
-  magnesium: number
-  sodium: number
-  sulfate: number
-  chloride: number
-  bicarbonate: number
-  carbonate: number
-  ph: number
-  alkalinity?: number  // as CaCO3
-  residualAlkalinity?: number
-  totalDissolvedSolids?: number
-  ionBalance?: number
+  calcium: number;
+  magnesium: number;
+  sodium: number;
+  sulfate: number;
+  chloride: number;
+  bicarbonate: number;
+  carbonate?: number;
+  ph?: number;
+  alkalinity?: number;
 }
 
 export interface GrainBillItem {
-  name: string
-  amountKg: number
-  color: number        // SRM
-  distilledWaterPH?: number
-  bufferCapacity?: number
-  acidity?: number
-  grainType: 'base' | 'crystal' | 'roasted' | 'acidulated' | 'other'
+  name: string;
+  weight: number; // kg
+  color: number; // EBC
+  type: 'base' | 'crystal' | 'roasted' | 'acidulated' | 'wheat';
+  percentage?: number;
+}
+
+export interface Volumes {
+  total: number;
+  mash: number;
+  sparge: number;
+}
+
+export type VolumeMode = 'total' | 'mash' | 'staged';
+export type PHModel = 'simple' | 'kaiser' | 'advanced';
+export type OptimizationStrategy = 'balanced' | 'minimal' | 'exact';
+
+export interface SaltAddition {
+  name: string;
+  amount: number; // grams
+  targetVolume?: 'mash' | 'sparge' | 'boil'; // For staged mode
+}
+
+export interface AcidAddition {
+  name: string;
+  amount: number; // ml
+  concentration: number; // percentage
+  targetVolume?: 'mash' | 'sparge';
+}
+
+export interface CalculationOptions {
+  volumeMode: VolumeMode;
+  phModel: PHModel;
+  optimization?: OptimizationStrategy;
 }
 
 export interface CalculationRequest {
-  sourceWater: WaterProfile
-  targetWater?: WaterProfile
-  grainBill: GrainBillItem[]
-  volumes: {
-    total: number
-    mash: number
-    sparge: number
-  }
-  targetMashPH?: number
-  units: 'metric' | 'imperial'
-  mode?: 'simple' | 'guided' | 'expert'
-  autoCalculateSalts?: boolean
-  manualAdjustments?: {
-    salts?: Record<string, number>
-    acids?: Record<string, number>
-  }
-  acidPreferences?: {
-    mash?: {
-      type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
-      concentrationPct: number
-    }
-    sparge?: {
-      type: 'lactic' | 'phosphoric' | 'hydrochloric' | 'sulfuric'
-      concentrationPct: number
-      targetPH?: number
-    }
-  }
-  saltPreferences?: {
-    allowedSalts?: Array<
-      | 'gypsum'
-      | 'calcium_chloride'
-      | 'epsom_salt'
-      | 'magnesium_chloride'
-      | 'sodium_chloride'
-      | 'baking_soda'
-      | 'calcium_carbonate'
-      | 'calcium_hydroxide'
-    >
-  }
+  sourceWater: WaterProfile;
+  targetWater?: WaterProfile;
+  grainBill: GrainBillItem[];
+  volumes: Volumes;
+  options: CalculationOptions;
+  style?: string;
+}
+
+export interface ManualCalculationRequest {
+  sourceWater: WaterProfile;
+  additions: {
+    salts: Record<string, number>; // salt name -> grams
+    acids: Record<string, number>; // acid name -> ml
+  };
+  volumes: Volumes;
+  grainBill: GrainBillItem[];
+  options: CalculationOptions;
 }
 
 export interface CalculationResponse {
-  success: boolean
-  sourceWater: WaterProfile
-  achievedWater: WaterProfile
   adjustments: {
-    salts: Array<{
-      id: string
-      name: string
-      amount: number
-      unit: string
-      target?: 'mash' | 'sparge' | 'boil'  // Where to add this salt
-    }>
-    acids: Array<{
-      id: string
-      name: string
-      amount: number
-      unit: string
-      target?: 'mash' | 'sparge'  // Where to add this acid
-    }>
-    // New split structure (optional for backwards compatibility)
+    salts: SaltAddition[];
+    acids: AcidAddition[];
     mash?: {
-      salts: Array<{
-        id: string
-        name: string
-        amount: number
-        unit: string
-      }>
-      acids: Array<{
-        id: string
-        name: string
-        amount: number
-        unit: string
-      }>
-    }
+      salts: SaltAddition[];
+      acids: AcidAddition[];
+    };
     sparge?: {
-      salts: Array<{
-        id: string
-        name: string
-        amount: number
-        unit: string
-      }>
-      acids: Array<{
-        id: string
-        name: string
-        amount: number
-        unit: string
-      }>
-    }
+      salts: SaltAddition[];
+      acids: AcidAddition[];
+    };
     boil?: {
-      salts: Array<{
-        id: string
-        name: string
-        amount: number
-        unit: string
-      }>
-    }
-  }
+      salts: SaltAddition[];
+    };
+  };
+  achievedWater: WaterProfile;
   predictions: {
-    // pH progression
-    basePH?: number          // pH from grain bill only
-    sourcePH?: number        // pH with source water
-    afterSaltsPH?: number    // pH after salt additions
-    finalPH: number          // Final pH after acid additions
-    
-    // Legacy field for backwards compatibility
-    mashPH: number           // Same as afterSaltsPH
-    
-    // Other predictions
-    residualAlkalinity: number
-    sulfateChlorideRatio: number
-    effectiveHardness: number
-    totalHardness?: number
-  }
-  warnings: string[]
-  recommendations: string[]
+    mashPH: number;
+    finalPH?: number;
+    basePH?: number;
+    sourcePH?: number;
+    afterSaltsPH?: number;
+    sulfateChlorideRatio: number;
+    residualAlkalinity: number;
+  };
+  analysis: {
+    matchPercentage?: number;
+    calciumLevel?: 'low' | 'optimal' | 'high';
+    flavorProfile?: 'hoppy' | 'balanced' | 'malty';
+    phStatus?: 'too_low' | 'in_range' | 'too_high';
+    warnings: string[];
+    suggestions: string[];
+  };
+}
+
+export interface ValidationRequest {
+  plannedAdditions: {
+    salts: Record<string, number>;
+    acids: Record<string, number>;
+  };
+  sourceWater: WaterProfile;
+  targetProfile?: string;
+  grainBill: GrainBillItem[];
+  volumes: Volumes;
+  concerns: ('yeast_health' | 'hop_utilization' | 'mash_ph' | 'clarity')[];
+}
+
+export interface ValidationResponse {
+  valid: boolean;
+  issues: {
+    severity: 'error' | 'warning' | 'info';
+    message: string;
+    suggestion?: string;
+  }[];
+  predictions: {
+    fermentation?: 'poor' | 'good' | 'excellent';
+    clarity?: 'cloudy' | 'clear' | 'brilliant';
+    flavor_impact?: 'too_minerally' | 'balanced' | 'too_soft';
+  };
 }
