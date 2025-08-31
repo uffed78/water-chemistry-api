@@ -14,12 +14,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { plannedAdditions, sourceWater, grainBill, volumes, phModel } = req.body as {
+    const { plannedAdditions, sourceWater, grainBill, volumes, phModel, assumeCarbonateDissolution } = req.body as {
       plannedAdditions: { salts: Record<string, number> }
       sourceWater: WaterProfile
       grainBill: GrainBillItem[]
       volumes: Volumes
       phModel?: 'simple' | 'kaiser'
+      assumeCarbonateDissolution?: boolean
     }
 
     if (!plannedAdditions || !sourceWater || !grainBill || !volumes) {
@@ -31,7 +32,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     for (const [saltId, grams] of Object.entries(plannedAdditions.salts || {})) {
       const salt = (SALTS as any)[saltId]
       if (!salt || !grams) continue
-      const c = calculateSaltContribution(salt, grams, volumes, 'mash')
+      const c = calculateSaltContribution(salt, grams, volumes, 'mash', undefined, { assumeCarbonateDissolution })
       achieved.calcium += c.calcium
       achieved.magnesium += c.magnesium
       achieved.sodium += c.sodium

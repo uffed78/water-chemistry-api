@@ -105,11 +105,12 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
   -d '@test-request.json'
 ```
 
-### API Endpoints
+### API Endpoints (Vercel)
 
 #### Beräkningar
-- `POST /api/v2/calculate/manual` - Manuell beräkning (användaren anger salter)
-- `POST /api/v2/calculate/auto` - Automatisk optimering mot målprofil
+- `POST /api/calculate` – Manuell eller Auto via `mode`
+  - Manuell: utelämna `mode` eller sätt `"mode":"manual"` och ange `additions.salts`
+  - Auto: sätt `"mode":"auto"` och ange `targetWater`
 
 #### Vatten- och stilprofiler (Vercel endpoints)
 - `GET /api/profiles?type=water` - Lista alla vattenprofiler (id:n)
@@ -122,6 +123,13 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 
 #### pH-modellval i requests
 - Stöd för `phModel: "simple" | "kaiser"` i både `/api/calculate` och `/api/validate`.
+
+#### Karbonat → bikarbonat‑antagande
+- Nytt: `assumeCarbonateDissolution: boolean` (default: `true`).
+- När `true` räknas:
+  - `CaCO3` (krita) som bikarbonat i mäsken (CO3²⁻ → HCO3⁻, ca +1.7% mass‑korrektion).
+  - `Ca(OH)2` (släckt kalk/pickling lime) antas reagera med CO2 till Ca(HCO3)2 och ger stark bikarbonat‑ökning (~1646 ppm per g per L innan volymfördelning).
+- Sätt `false` om du vill visa ren karbonat utan omvandling (icke‑upplöst krita).
 
 Exempel (calculate, Kaiser):
 ```json
@@ -146,14 +154,8 @@ Exempel (validate, Kaiser):
 }
 ```
 
-#### Stilprofiler
-- `GET /api/v2/profiles/styles` - Lista alla stilprofiler
-- `GET /api/v2/profiles/styles/:id` - Hämta specifik stil (t.ex. "american-ipa")
-- `POST /api/v2/profiles/styles/:id/recommendations` - Få rekommendationer för stil
-- `POST /api/v2/profiles/styles/match` - Hitta stilar som passar ditt vatten
-
-#### Validering
-- `POST /api/v2/validate` - Validera recept mot best practices
+\
+Obs: Tidigare dokumenterade `/api/v2/*`-vägar gällde Express-läge. I Vercel används ovanstående konsoliderade endpoints.
 
 ### Status
 ✅ **KOMPLETT IMPLEMENTATION**

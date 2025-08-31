@@ -23,7 +23,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       volumes,
       mode = 'manual',
       volumeMode = 'mash',
-      additions
+      additions,
+      assumeCarbonateDissolution
     } = req.body as {
       sourceWater: WaterProfile
       targetWater?: WaterProfile
@@ -33,6 +34,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       volumeMode?: VolumeMode
       additions?: { salts: Record<string, number> }
       phModel?: 'simple' | 'kaiser'
+      assumeCarbonateDissolution?: boolean
     }
 
     if (!sourceWater || !grainBill || !volumes) {
@@ -46,7 +48,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       for (const [saltId, grams] of Object.entries(additions.salts)) {
         const salt = (SALTS as any)[saltId]
         if (!salt || !grams) continue
-        const c = calculateSaltContribution(salt, grams, volumes, volumeMode)
+        const c = calculateSaltContribution(salt, grams, volumes, volumeMode, undefined, { assumeCarbonateDissolution })
         achieved.calcium += c.calcium
         achieved.magnesium += c.magnesium
         achieved.sodium += c.sodium
@@ -84,7 +86,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     for (const [saltId, grams] of Object.entries(salts)) {
       const salt = (SALTS as any)[saltId]
       if (!salt || !grams) continue
-      const c = calculateSaltContribution(salt, grams, volumes, volumeMode)
+      const c = calculateSaltContribution(salt, grams, volumes, volumeMode, undefined, { assumeCarbonateDissolution })
       achieved.calcium += c.calcium
       achieved.magnesium += c.magnesium
       achieved.sodium += c.sodium
