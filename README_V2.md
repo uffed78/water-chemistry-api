@@ -111,6 +111,9 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 - `POST /api/calculate` – Manuell eller Auto via `mode`
   - Manuell: utelämna `mode` eller sätt `"mode":"manual"` och ange `additions.salts`
   - Auto: sätt `"mode":"auto"` och ange `targetWater`
+  - Nytt: `optimization: "simple" | "balanced" | "exact"` (default: `simple`).
+    - `balanced`: fler salter + lätt iterativ förbättring.
+    - `exact`: mer aggressiv iterativ minimering av total avvikelse (fler iterationer, tajtare tolerans).
 
 #### Vatten- och stilprofiler (Vercel endpoints)
 - `GET /api/profiles?type=water` - Lista alla vattenprofiler (id:n)

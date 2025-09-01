@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { SALTS } from '../src/v2/data/salts'
 import type { VolumeMode, WaterProfile, Volumes, GrainBillItem } from '../src/v2/types'
 import { calculateSaltContribution } from '../src/v2/calculations/ppm'
-import { optimizeWaterSimple } from '../src/v2/calculations/optimize'
+import { optimizeWaterSimple, optimizeWaterBalanced, optimizeWaterExact } from '../src/v2/calculations/optimize'
 import { calculateMashPH_Simple, calculateMashPH_Kaiser } from '../src/v2/calculations/ph'
 
 type Mode = 'manual' | 'auto'
@@ -35,6 +35,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       additions?: { salts: Record<string, number> }
       phModel?: 'simple' | 'kaiser'
       assumeCarbonateDissolution?: boolean
+      optimization?: 'simple' | 'balanced' | 'exact'
     }
 
     if (!sourceWater || !grainBill || !volumes) {
@@ -81,7 +82,12 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     // Auto mode
     if (!targetWater) return res.status(400).json({ error: 'Missing targetWater for auto mode' })
 
-    const salts = optimizeWaterSimple(sourceWater, targetWater, volumes, volumeMode)
+    const optimization = (req.body?.optimization as 'simple' | 'balanced' | 'exact') || 'simple'
+    const salts = optimization === 'balanced'
+      ? optimizeWaterBalanced(sourceWater, targetWater, volumes, volumeMode, { assumeCarbonateDissolution })
+      : optimization === 'exact'
+        ? optimizeWaterExact(sourceWater, targetWater, volumes, volumeMode, { assumeCarbonateDissolution })
+        : optimizeWaterSimple(sourceWater, targetWater, volumes, volumeMode)
     const achieved: WaterProfile = { ...sourceWater }
     for (const [saltId, grams] of Object.entries(salts)) {
       const salt = (SALTS as any)[saltId]
