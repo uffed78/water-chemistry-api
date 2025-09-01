@@ -114,6 +114,8 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
   - Nytt: `optimization: "simple" | "balanced" | "exact"` (default: `simple`).
     - `balanced`: fler salter + lätt iterativ förbättring.
     - `exact`: mer aggressiv iterativ minimering av total avvikelse (fler iterationer, tajtare tolerans).
+  - Nytt: `additions.acids` (manuella syror) i manual-läget, t.ex. `{ "lactic_88": 2.0 }` (ml)
+  - Nytt: `targetMashPH` (valfri) – om satt och pH är för högt föreslås mjölksyra 88% och pH räknas om.
 
 #### Vatten- och stilprofiler (Vercel endpoints)
 - `GET /api/profiles?type=water` - Lista alla vattenprofiler (id:n)
@@ -123,6 +125,7 @@ curl -X POST http://localhost:3456/api/v2/calculate/manual \
 
 #### Validering (Vercel endpoint)
 - `POST /api/validate` - Validera planerade tillsatser och få pH/varningar
+  - Stöd för `plannedAdditions.acids` (ml). pH beräknas efter att syror applicerats.
 
 #### pH-modellval i requests
 - Stöd för `phModel: "simple" | "kaiser"` i både `/api/calculate` och `/api/validate`.

@@ -15,7 +15,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { plannedAdditions, sourceWater, grainBill, volumes, phModel, assumeCarbonateDissolution } = req.body as {
-      plannedAdditions: { salts: Record<string, number> }
+      plannedAdditions: { salts: Record<string, number>; acids?: Record<string, number> }
       sourceWater: WaterProfile
       grainBill: GrainBillItem[]
       volumes: Volumes
@@ -25,6 +25,18 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!plannedAdditions || !sourceWater || !grainBill || !volumes) {
       return res.status(400).json({ error: 'Missing required fields', required: ['plannedAdditions', 'sourceWater', 'grainBill', 'volumes'] })
+    }
+
+    // Helpers duplicated from calculate for a minimal dependency
+    const MEQ_PER_ML: Record<string, number> = { lactic_88: 11.8, phosphoric_85: 25.6 }
+    function hco3Drop(acids: Record<string, number> | undefined): number {
+      if (!acids) return 0
+      let mEq = 0
+      for (const [k, v] of Object.entries(acids)) {
+        const f = MEQ_PER_ML[k as keyof typeof MEQ_PER_ML]
+        if (f && v) mEq += v * f
+      }
+      return (mEq / Math.max(0.0001, volumes.mash)) * 61
     }
 
     // Compute achieved water using mash mode
@@ -39,6 +51,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       achieved.sulfate += c.sulfate
       achieved.chloride += c.chloride
       achieved.bicarbonate += c.bicarbonate
+    }
+
+    // Apply planned acids to reduce bicarbonate
+    if (plannedAdditions.acids && Object.keys(plannedAdditions.acids).length > 0) {
+      achieved.bicarbonate = Math.max(0, achieved.bicarbonate - hco3Drop(plannedAdditions.acids))
     }
 
     // Simple predictions

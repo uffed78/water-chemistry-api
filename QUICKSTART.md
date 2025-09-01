@@ -9,6 +9,7 @@ Kort, praktisk översikt över alla funktioner som finns nu. Använd denna när 
   - pH‑modell: `phModel: "simple" | "kaiser"` (default: `simple`)
   - Karbonatantagande: `assumeCarbonateDissolution: boolean` (default: `true`)
   - Auto‑optimering: `optimization: "simple" | "balanced" | "exact"` (default: `simple`)
+  - pH‑mål (valfritt): `targetMashPH: number` → API föreslår mjölksyra 88% vid behov och räknar om pH
 - `POST /api/validate` – validerar planerade tillsatser, ger pH och varningar
 - `GET /api/profiles?type=water[&id=...]` – vattenprofiler (id‑lista eller en specifik)
 - `GET /api/profiles?type=style[&id=...]` – stilprofiler (id‑lista eller en specifik)
@@ -24,14 +25,17 @@ Kort, praktisk översikt över alla funktioner som finns nu. Använd denna när 
 
 ## Snabba exempel
 
-Manual (salter angivna)
+Manual (salter + valfria syror)
 ```bash
 curl -sX POST https://<your-vercel>/api/calculate \
   -H "Content-Type: application/json" \
   -d '{
     "mode": "manual",
     "sourceWater": {"calcium":0,"magnesium":0,"sodium":0,"sulfate":0,"chloride":0,"bicarbonate":0},
-    "additions": {"salts": {"gypsum": 2.0, "calcium_chloride": 1.0}},
+    "additions": {
+      "salts": {"gypsum": 2.0, "calcium_chloride": 1.0},
+      "acids": {"lactic_88": 2.0}
+    },
     "volumes": {"total": 32.2, "mash": 17, "sparge": 15.2},
     "grainBill": [{"name":"Pilsner","weight":5.0,"color":3,"type":"base"}],
     "phModel": "kaiser",
@@ -67,6 +71,7 @@ curl -sX POST https://<your-vercel>/api/calculate \
     "volumes": {"total": 32.2, "mash": 17, "sparge": 15.2},
     "grainBill": [{"name":"IPA Base","weight":5.0,"color":5,"type":"base"}],
     "phModel": "simple",
+    "targetMashPH": 5.3,
     "assumeCarbonateDissolution": true
   }'
 ```
@@ -76,7 +81,10 @@ Validate (planerade tillsatser)
 curl -sX POST https://<your-vercel>/api/validate \
   -H "Content-Type: application/json" \
   -d '{
-    "plannedAdditions": {"salts": {"gypsum": 2.0, "calcium_chloride": 1.0}},
+    "plannedAdditions": {
+      "salts": {"gypsum": 2.0, "calcium_chloride": 1.0},
+      "acids": {"lactic_88": 1.5}
+    },
     "sourceWater": {"calcium":25,"magnesium":8,"sodium":10,"sulfate":50,"chloride":30,"bicarbonate":80},
     "volumes": {"total": 32.2, "mash": 17, "sparge": 15.2},
     "grainBill": [{"name":"Maris Otter","weight":5.0,"color":6,"type":"base"}],
